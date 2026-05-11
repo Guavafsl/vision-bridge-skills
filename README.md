@@ -25,19 +25,21 @@ All settings via environment variables:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `VISION_API_KEY` | Yes | — | Your vision model API key |
-| `VISION_BASE_URL` | No | MiMo V2.5 endpoint | Anthropic-compatible messages API URL |
+| `VISION_BASE_URL` | No | CN endpoint (see region table) | Anthropic-compatible messages API URL |
 | `VISION_MODEL` | No | `mimo-v2.5` | Model name |
 | `VISION_DOMAIN` | No | — | Domain context injected into every prompt |
+| `VISION_REGION` | No | `cn` | API region: `cn` or `sgp` |
 
 ### Supported Models
 
 Any Anthropic Messages API-compatible service:
 
-| Provider | `VISION_BASE_URL` | Notes |
-|----------|-------------------|-------|
-| MiMo V2.5 | `https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages` | Default |
-| Anthropic Claude | `https://api.anthropic.com/v1/messages` | Requires Anthropic API key |
-| Custom | Your URL | Any compatible endpoint |
+| Provider | Region | Endpoint |
+|----------|--------|----------|
+| MiMo V2.5 (CN) | `cn` (default) | `https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages` |
+| MiMo V2.5 (SGP) | `sgp` | `https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages` |
+| Anthropic Claude | — | `https://api.anthropic.com/v1/messages` |
+| Custom | — | Your URL |
 
 ## Usage
 
@@ -56,6 +58,9 @@ python scripts/vision_bridge.py image.png --verbose
 
 # Inject domain-specific context
 python scripts/vision_bridge.py image.png --domain "You are analyzing medical X-ray images. Look for fractures."
+
+# Use Singapore endpoint (default is CN)
+python scripts/vision_bridge.py image.png --region sgp
 ```
 
 ## Domain Context

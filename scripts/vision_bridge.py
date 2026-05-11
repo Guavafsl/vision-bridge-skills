@@ -10,6 +10,7 @@ Usage:
     python vision_bridge.py <image_path> "custom question"  # custom prompt
     python vision_bridge.py <image_path> --verbose          # show thinking
     python vision_bridge.py <image_path> --domain "..."     # inject domain context
+    python vision_bridge.py <image_path> --region sgp       # use Singapore endpoint
 
 Configuration via environment variables:
     VISION_API_KEY      API key for the vision model
@@ -27,9 +28,16 @@ import urllib.request
 
 # ── Configuration (env vars with sensible defaults) ──────────────────────────
 API_KEY = os.environ.get("VISION_API_KEY", "")
+REGION_URLS = {
+    "cn": "https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages",
+    "sgp": "https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages",
+}
+
+DEFAULT_REGION = "cn"
+
 BASE_URL = os.environ.get(
     "VISION_BASE_URL",
-    "https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages",
+    REGION_URLS[DEFAULT_REGION],
 )
 MODEL = os.environ.get("VISION_MODEL", "mimo-v2.5")
 DOMAIN_CONTEXT = os.environ.get("VISION_DOMAIN", "")
@@ -151,7 +159,7 @@ def analyze_image(image_path, question=None, verbose=False):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python vision_bridge.py <image_path> [question|--brief] [--verbose] [--domain CONTEXT]")
+        print("Usage: python vision_bridge.py <image_path> [question|--brief] [--verbose] [--domain CONTEXT] [--region cn|sgp]")
         print()
         print("Environment variables:")
         print("  VISION_API_KEY    API key (required)")
@@ -180,6 +188,13 @@ if __name__ == "__main__":
             i += 1
         elif a == "--domain" and i + 1 < len(args):
             domain_override = args[i + 1]
+            i += 2
+        elif a == "--region" and i + 1 < len(args):
+            region = args[i + 1]
+            if region not in REGION_URLS:
+                print(f"Unknown region: {region}. Available: {list(REGION_URLS.keys())}")
+                sys.exit(1)
+            os.environ["VISION_BASE_URL"] = REGION_URLS[region]
             i += 2
         else:
             positional.append(a)
