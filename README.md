@@ -18,8 +18,6 @@ export VISION_API_KEY="your-api-key"
 python scripts/vision_bridge.py screenshot.png
 ```
 
-That's it. No dependencies beyond Python standard library.
-
 ## Configuration
 
 All settings via environment variables:
