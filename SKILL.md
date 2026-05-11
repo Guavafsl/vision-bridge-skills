@@ -47,19 +47,21 @@ enabled: true
 | 变量 | 必需 | 说明 |
 |------|------|------|
 | `VISION_API_KEY` | 是 | 视觉模型 API Key |
-| `VISION_BASE_URL` | 否 | API 地址（默认 MiMo V2.5） |
+| `VISION_BASE_URL` | 否 | API 地址（默认使用 CN 节点） |
 | `VISION_MODEL` | 否 | 模型名（默认 `mimo-v2.5`） |
 | `VISION_DOMAIN` | 否 | 可选的领域上下文，注入到每次分析提示词中 |
+| `VISION_REGION` | 否 | 区域选择：`cn`（默认）或 `sgp` |
 
 ### 支持的视觉模型
 
 任何兼容 Anthropic Messages API 的多模态模型均可使用：
 
-| 模型 | Base URL |
-|------|----------|
-| MiMo V2.5 | `https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages` |
-| Anthropic Claude | `https://api.anthropic.com/v1/messages` |
-| 其他兼容服务 | 自定义 |
+| 模型 | 区域 | 端点地址 |
+|------|------|----------|
+| MiMo V2.5 (CN) | `cn`（默认） | `https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages` |
+| MiMo V2.5 (SGP) | `sgp` | `https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages` |
+| Anthropic Claude | — | `https://api.anthropic.com/v1/messages` |
+| 其他兼容服务 | — | 自定义 |
 
 ### 领域上下文（可选）
 
@@ -107,6 +109,13 @@ python scripts/vision_bridge.py <image_path> --verbose
 
 ```bash
 python scripts/vision_bridge.py <image_path> --domain "你在分析卫星遥感图像。关注云层、地形和水体分布。"
+```
+
+### 6. 指定区域端点
+
+```bash
+# 使用新加坡节点（默认使用中国节点）
+python scripts/vision_bridge.py <image_path> --region sgp
 ```
 
 ## 工作流示例
