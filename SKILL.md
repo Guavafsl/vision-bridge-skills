@@ -1,160 +1,187 @@
 ---
 name: vision-bridge
-description: 视觉协作桥接 — 当主对话模型不支持图像输入时，将图像路由至外部视觉模型分析，结果返回主模型继续对话。支持两阶段工作流：视觉模型分析 → 主模型评审与执行。
-version: 1.0.0
+description: Visual collaboration bridge — routes images to an external vision model when the primary text model cannot process images. Returns structured analysis for the text model to review and act on. Two-stage workflow: vision model analyzes → text model reviews and executes.
+version: 1.1.0
 enabled: true
 ---
 
-# Vision Bridge — 视觉协作桥接
+# Vision Bridge
 
-当主对话模型（如 DeepSeek V4 Pro 等纯文本模型）无法直接查看图像时，自动通过外部视觉模型完成图像分析，分析结果返回主模型继续对话和执行任务。
+When the primary text model (e.g., DeepSeek, any text-only LLM) cannot view images, automatically delegate image analysis to an external vision model and return the result for continued conversation and execution.
 
-## 触发条件
+## Trigger Conditions
 
-**用户主动触发**（关键词匹配）：
-- 中文：视觉协作、看图、分析图像、查看监控、图像分析、图片、看一下、帮我看看
-- 英文：vision bridge、view image、analyze image、image analysis、visual collaboration
-- 用户明确要求查看某张图像或目录下的图像
+**User-initiated** (keyword matching):
+- Chinese: 视觉协作、看图、分析图像、查看监控、图像分析、图片、看一下、帮我看看
+- English: vision bridge, view image, analyze image, image analysis, visual collaboration
+- User explicitly requests analysis of an image file or a directory of images
 
-**自动触发**（能力检测）：
-- 主模型尝试 Read 图像文件返回 `[Unsupported Image]` 时
-- 主模型意识到当前不支持多模态输入时
-- 任务需要视觉分析但主模型无法直接处理时
+**Auto-triggered** (capability detection):
+- Primary model attempts to read an image file and receives `[Unsupported Image]`
+- Primary model recognizes it cannot handle multimodal input
+- Task requires visual analysis that the primary model cannot perform
 
-## 架构
+## Architecture
 
 ```
 ┌──────────────┐     ┌─────────────────┐     ┌──────────────┐
-│  主对话模型   │────▶│  vision_bridge   │────▶│  视觉模型     │
-│ (纯文本)     │     │     .py 脚本     │     │ (多模态)     │
-│              │◀────│                 │◀────│              │
-│ 评审+执行    │     │  文本描述返回     │     │  深度分析     │
+│  Text model  │────▶│  vision_bridge   │────▶│ Vision model │
+│ (text-only)  │     │     .py script   │     │ (multimodal) │
+│              │◀────│                  │◀────│              │
+│ Review+act   │     │  text report     │     │ Deep analysis│
 └──────────────┘     └─────────────────┘     └──────────────┘
 ```
 
-**两阶段工作流**：
-1. **视觉模型**：图像 → 结构化视觉分析 → 问题识别 → 建议（聚焦视觉层面，不涉及代码）
-2. **主模型**：评审分析结果 → 映射到代码/操作 → 执行修改 → 验证
+**Two-stage workflow:**
+1. **Vision model**: image → structured visual analysis → issue identification → recommendations (visual layer only, no code suggestions)
+2. **Text model**: review analysis → map to code/actions → execute changes → verify
 
-视觉模型做像素级推理，主模型做代码级执行；各司其职。
+Vision model handles pixel-level reasoning; text model handles code-level execution.
 
-## 首次配置
+## Setup
 
-首次使用时，脚本会引导你完成配置。也可以直接设置环境变量：
+Set environment variables before use:
 
-### 环境变量
+### Environment Variables
 
-| 变量 | 必需 | 说明 |
-|------|------|------|
-| `VISION_API_KEY` | 是 | 视觉模型 API Key |
-| `VISION_BASE_URL` | 否 | API 地址（默认使用 CN 节点） |
-| `VISION_MODEL` | 否 | 模型名（默认 `mimo-v2.5`） |
-| `VISION_DOMAIN` | 否 | 可选的领域上下文，注入到每次分析提示词中 |
-| `VISION_REGION` | 否 | 区域选择：`cn`（默认）或 `sgp` |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VISION_API_KEY` | Yes | API key for the vision model |
+| `VISION_BASE_URL` | No | API endpoint (default: MiMo V2.5 CN) |
+| `VISION_MODEL` | No | Model name (default: `mimo-v2.5`) |
+| `VISION_DOMAIN` | No | Optional domain context prepended to every analysis prompt |
 
-### 支持的视觉模型
+### Supported Vision Models
 
-任何兼容 Anthropic Messages API 的多模态模型均可使用：
+Any Anthropic Messages API-compatible multimodal service:
 
-| 模型 | 区域 | 端点地址 |
-|------|------|----------|
-| MiMo V2.5 (CN) | `cn`（默认） | `https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages` |
-| MiMo V2.5 (SGP) | `sgp` | `https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages` |
-| Anthropic Claude | — | `https://api.anthropic.com/v1/messages` |
-| 其他兼容服务 | — | 自定义 |
+| Model | Base URL |
+|-------|----------|
+| MiMo V2.5 | `https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages` |
+| Anthropic Claude | `https://api.anthropic.com/v1/messages` |
+| Custom | (your URL) |
 
-### 领域上下文（可选）
+### Domain Context (optional)
 
-如果你的图像分析需要特定领域知识，设置 `VISION_DOMAIN` 环境变量或使用 `--domain` 参数。例如：
+For domain-specific image analysis, set `VISION_DOMAIN` or use `--domain`:
 
 ```bash
-# 环境变量方式（持久）
+# Persistent (env var)
 export VISION_DOMAIN="You are analyzing medical X-ray images. Look for fractures, lesions, and abnormalities."
 
-# 命令行方式（一次性）
+# One-off (flag)
 python vision_bridge.py xray.png --domain "You are analyzing medical X-ray images."
 ```
 
-## 使用方式
+## Agent Execution Reference
 
-脚本位于本 skill 目录的 `scripts/vision_bridge.py`。
+The script lives at `scripts/vision_bridge.py` within this skill directory.
+Users interact via natural language — the agent runs these commands internally.
 
-### 1. 深度分析（默认）
+### 1. Deep analysis (default)
 
 ```bash
 python scripts/vision_bridge.py <image_path>
 ```
 
-输出结构化分析：Visual Observation → Issue Identification → Pattern Analysis → Recommendations
+Output: Visual Observation → Issue Identification → Pattern Analysis → Recommendations
 
-### 2. 快速描述
+### 2. Quick description
 
 ```bash
 python scripts/vision_bridge.py <image_path> --brief
 ```
 
-### 3. 自定义问题
+### 3. Custom question
 
 ```bash
-python scripts/vision_bridge.py <image_path> "图中有什么异常？"
+python scripts/vision_bridge.py <image_path> "What anomalies are visible?"
 ```
 
-### 4. 显示推理过程
+### 4. Show model reasoning
 
 ```bash
 python scripts/vision_bridge.py <image_path> --verbose
 ```
 
-### 5. 注入领域上下文
+### 5. Inject domain context
 
 ```bash
-python scripts/vision_bridge.py <image_path> --domain "你在分析卫星遥感图像。关注云层、地形和水体分布。"
+python scripts/vision_bridge.py <image_path> --domain "Analyzing satellite imagery. Focus on cloud cover, terrain, and water bodies."
 ```
 
-### 6. 指定区域端点
+### 6. Inject conversation context (recommended)
+
+Generated by the text model from the current conversation; passed as the `system` field to the vision model:
 
 ```bash
-# 使用新加坡节点（默认使用中国节点）
-python scripts/vision_bridge.py <image_path> --region sgp
+python scripts/vision_bridge.py <image_path> --context "Mobile UI screenshot. Observe: layout misalignment, text truncation, overlapping components."
 ```
 
-## 工作流示例
+## Vision Context Guidance Rules
+
+**Before calling the vision model**, generate a short neutral `--context` value based on the current conversation.
+
+### Format
 
 ```
-用户：帮我看看 screenshots/error.png 报了什么错
-
-主模型：[检测到图像请求，启动 vision-bridge]
-       → python scripts/vision_bridge.py screenshots/error.png "描述这个错误截图中的内容"
-       → 视觉模型返回：红色错误弹窗，标题"Connection Refused"，端口 5432...
-
-主模型：[评审分析结果]
-       "错误是 PostgreSQL 连接被拒绝，端口 5432。
-        检查：PostgreSQL 服务是否运行？防火墙规则？连接字符串配置？"
-
-主模型：[执行修复]
-       → 检查 docker-compose.yml 的 postgres 配置
-       → 验证连接字符串中的端口
+[Domain/scene, ≤10 words]. Observe: [focus1], [focus2], [focus3 — noun phrases].
 ```
 
-## 视觉模型的职责边界
+Total length ≤ 60 words.
 
-**应该做**：
-- 描述像素级视觉现象
-- 识别问题、异常、关键信息
-- 分析趋势和模式
-- 提出视觉层面的改进建议
+### Forbidden words
 
-**不应该做**：
-- 建议代码修改（不知道代码库结构）
-- 执行操作（没有执行环境）
-- 做出需要业务上下文才能判断的决策
+| Forbidden (EN) | Forbidden (中文) | Use instead |
+|----------------|-----------------|-------------|
+| expect to see / want to see / hope to find | 期望/想要/希望看到 | List observation nouns directly |
+| should have / ought to / probably has | 应该/应当有/可能有 | Remove the presupposition |
+| I think / I believe / I assume | 我认为/我觉得 | Remove subjective markers |
+| please focus on what I care about | 请重点看我关心的 | Name the specific noun directly |
 
-这些边界确保视觉模型发挥其推理优势，同时避免无上下文的错误建议。
+### Example
 
-## 注意事项
+❌ **Wrong**: `This is an app screenshot, I expect buttons to be aligned and text should not be cut off`  
+✅ **Correct**: `Mobile UI screenshot. Observe: button alignment, text truncation, overlapping component regions.`
 
-- 图像 base64 编码会增加 payload 大小，建议单张 < 10MB
-- 视觉模型调用有延迟（通常 10-60 秒）
-- 批量分析多张图像时，使用 Bash 循环调用
-- 分析质量取决于视觉模型能力，关键任务建议使用更强模型
-- API Key 不要硬编码在脚本中，始终使用环境变量
+## Workflow Example
+
+```
+User: Check what error screenshots/error.png is showing
+
+Text model: [Image request detected — activating vision-bridge]
+            → python scripts/vision_bridge.py screenshots/error.png \
+                --context "Application error screenshot. Observe: error type, message text, stack trace."
+            → Vision model returns: red dialog, title "Connection Refused", port 5432...
+
+Text model: [Reviews analysis]
+            "Error is PostgreSQL connection refused on port 5432.
+             Check: Is PostgreSQL running? Firewall rules? Connection string config?"
+
+Text model: [Executes fix]
+            → Inspect docker-compose.yml postgres config
+            → Verify port in connection string
+```
+
+## Vision Model Scope
+
+**Should do:**
+- Describe pixel-level visual phenomena
+- Identify issues, anomalies, key information
+- Analyze trends and patterns
+- Provide visual-layer improvement suggestions
+
+**Should NOT do:**
+- Suggest code changes (no knowledge of the codebase)
+- Execute operations (no execution environment)
+- Make decisions requiring business context
+
+These boundaries ensure the vision model leverages its reasoning strengths while avoiding uninformed suggestions.
+
+## Notes
+
+- Base64-encoded images increase payload size — keep single images under 10 MB
+- Vision model calls typically take 10–60 seconds
+- For batch analysis, loop calls via shell
+- Analysis quality depends on the vision model — use a stronger model for critical tasks
+- Never hardcode the API key; always use environment variables
