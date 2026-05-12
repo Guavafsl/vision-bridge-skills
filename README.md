@@ -1,3 +1,10 @@
+<p align="center">
+  <a href="./README.md"><strong>English</strong></a> · 
+  <a href="./README.zh.md"><strong>简体中文</strong></a>
+</p>
+
+---
+
 # Vision Bridge
 
 Route images to a vision-capable model when your primary chat model (e.g., DeepSeek, any text-only LLM) cannot view images directly.
